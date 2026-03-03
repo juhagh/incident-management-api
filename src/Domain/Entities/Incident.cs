@@ -41,6 +41,8 @@ public class Incident
     public int NetworkElementId { get; private set; }
     public int? EngineerId { get; private set; }
     public byte[]? RowVersion { get; private set; }
+    public string? WaitingReason { get; private set; }
+    public string? ResolutionSummary { get; private set; }
 
     public static Incident Create(string title, string description, IncidentSeverity severity,
         int networkElementId)
@@ -99,7 +101,7 @@ public class Incident
 
     public void StartProgress()
     {
-        if (Status is IncidentStatus.Closed or IncidentStatus.Invalid or IncidentStatus.Resolved)
+        if (Status is IncidentStatus.Closed or IncidentStatus.Invalid or IncidentStatus.Resolved or IncidentStatus.Open)
             throw new InvalidOperationException(
                 $"Cannot change status when incident status is {Status}.");
         
@@ -112,6 +114,70 @@ public class Incident
             Status = IncidentStatus.InProgress;
             Touch();
         }
+    }
+
+    public void MarkWaiting(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        
+        if (Status is not IncidentStatus.InProgress and not IncidentStatus.Waiting)
+            throw new InvalidOperationException(
+                $"Operation not allowed when incident status is {Status}. " +
+                "Allowed states: InProgress, Waiting.");
+        
+        if (EngineerId is null)
+            throw new InvalidOperationException(
+                "Operation not allowed when no engineer is assigned.");
+
+        bool changed = false;
+        
+        if (Status is not IncidentStatus.Waiting)
+        {
+            Status = IncidentStatus.Waiting;
+            changed = true;
+        }
+        
+        if (WaitingReason != reason)
+        {
+            WaitingReason = reason.Trim();
+            changed = true;
+        }
+        
+        if(changed)
+            Touch();
+    }
+
+    public void Resolve(string resolutionSummary)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resolutionSummary);
+        
+        if (Status is not IncidentStatus.InProgress)
+            throw new InvalidOperationException(
+                $"Operation not allowed when incident status is {Status}. " +
+                "Allowed state: InProgress.");
+
+        if (EngineerId is null)
+            throw new InvalidOperationException(
+                "Operation not allowed when no engineer is assigned.");
+
+        ResolutionSummary = resolutionSummary.Trim();;
+        Status = IncidentStatus.Resolved;
+        
+        Touch();
+    }
+
+    public void Close()
+    {
+        if (Status is not (IncidentStatus.Resolved or IncidentStatus.Invalid))
+            throw new InvalidOperationException(
+                $"Operation not allowed when incident status is {Status}. " +
+                "Allowed states: Resolved, Invalid.");
+        
+        Status = IncidentStatus.Closed;
+        
+        var now = DateTime.UtcNow;
+        UpdatedAt = now;
+        ClosedAt = now;
     }
     
     private void Touch() => UpdatedAt = DateTime.UtcNow;
