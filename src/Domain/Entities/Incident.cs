@@ -43,6 +43,7 @@ public class Incident
     public byte[]? RowVersion { get; private set; }
     public string? WaitingReason { get; private set; }
     public string? ResolutionSummary { get; private set; }
+    public string? InvalidReason { get; private set; }
 
     public static Incident Create(string title, string description, IncidentSeverity severity,
         int networkElementId)
@@ -174,10 +175,24 @@ public class Incident
                 "Allowed states: Resolved, Invalid.");
         
         Status = IncidentStatus.Closed;
-        
         var now = DateTime.UtcNow;
         UpdatedAt = now;
         ClosedAt = now;
+    }
+
+    public void MarkInvalid(string reason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        
+        if (Status is not (IncidentStatus.Open or IncidentStatus.Assigned))
+            throw new InvalidOperationException(
+                $"Operation not allowed when incident status is {Status}. " +
+                "Allowed states: Open, Assigned.");
+
+        InvalidReason = reason.Trim();
+        Status = IncidentStatus.Invalid;
+        
+        Touch();
     }
     
     private void Touch() => UpdatedAt = DateTime.UtcNow;
