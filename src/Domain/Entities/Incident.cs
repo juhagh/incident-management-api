@@ -40,7 +40,7 @@ public class Incident
     public IncidentStatus Status { get; private set; }
     public int NetworkElementId { get; private set; }
     public int? EngineerId { get; private set; }
-    public byte[]? RowVersion { get; private set; }
+    public uint RowVersion { get; private set; }
     public string? WaitingReason { get; private set; }
     public string? ResolutionSummary { get; private set; }
     public string? InvalidReason { get; private set; }
