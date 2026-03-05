@@ -1,6 +1,18 @@
 @API_HostAddress = http://localhost:5073
 
-GET {{API_HostAddress}}/weatherforecast/
+### GET with no ETag, expect 200 OK
+
+GET {{API_HostAddress}}/api/incidents/1
 Accept: application/json
 
-###
+### GET with matching ETag, expect 304
+
+GET {{API_HostAddress}}/api/incidents/1
+Accept: application/json
+If-None-Match: W/"749"
+
+### GET with mis-matching ETag, expect 200 OK
+
+GET {{API_HostAddress}}/api/incidents/1
+Accept: application/json
+If-None-Match: W/"740"

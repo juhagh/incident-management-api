@@ -39,10 +39,10 @@ public class IncidentConfiguration : IEntityTypeConfiguration<Incident>
             .HasMaxLength(50);
 
         // 5. Concurrency token mapping (Postgres)
-        builder.Property(x => x.RowVersion)
-            .HasColumnName("xmin")
-            .IsConcurrencyToken()
-            .ValueGeneratedOnAddOrUpdate();
+        // builder.Property(x => x.RowVersion)
+        //     .HasColumnName("xmin")
+        //     .IsConcurrencyToken()
+        //     .ValueGeneratedOnAddOrUpdate();
 
         // 6. Indexes
         builder.HasIndex(x => new { x.Status, x.Severity })
