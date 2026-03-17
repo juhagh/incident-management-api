@@ -1,14 +1,14 @@
 using API.Http.Etags;
 using Application.DTOs;
 using Application.Interfaces;
-using Application.Services;
-using Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class IncidentsController : ControllerBase
 {
 
@@ -19,21 +19,16 @@ public class IncidentsController : ControllerBase
         _incidentService = incidentService;
     }
     
+    [AllowAnonymous]
     [HttpGet("{id:int}")]
     public async Task<ActionResult<IncidentResponseDto>> GetIncidentByIdAsync(int id)
     {
         var incident = await _incidentService.GetByIdAsync(id);
+
         if (incident is null)
             return NotFound();
 
-        var etag = ETagHelper.CreateWeakETag(incident.RowVersion);
-        
-        if (ETagHelper.ShouldReturnNotModified(Request.Headers.IfNoneMatch, incident.RowVersion))
-            return StatusCode(304);
-
-        Response.Headers.ETag = etag;
-        
-        return Ok(incident);
+        return this.ConditionalOk(incident, incident.RowVersion);
     }
     
 }

@@ -14,7 +14,7 @@ public class IncidentsControllerTests
 
     [Fact]
     public async Task GetIncident_Returns200_AndETag()
-    {
+    {   
         var response = await _client.GetAsync("/api/incidents/1");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -41,5 +41,13 @@ public class IncidentsControllerTests
         var secondResponse = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.NotModified, secondResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetIncident_Returns404_WhenNotFound()
+    {
+        var response = await _client.GetAsync("/api/incidents/999");
+        
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 }
