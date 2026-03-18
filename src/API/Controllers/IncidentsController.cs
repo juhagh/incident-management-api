@@ -20,7 +20,7 @@ public class IncidentsController : ControllerBase
     }
     
     [AllowAnonymous]
-    [HttpGet("{id:int}")]
+    [HttpGet("{id:int}", Name = "GetIncidentById")]
     public async Task<ActionResult<IncidentResponseDto>> GetIncidentByIdAsync(int id)
     {
         var incident = await _incidentService.GetByIdAsync(id);
@@ -30,5 +30,11 @@ public class IncidentsController : ControllerBase
 
         return this.ConditionalOk(incident, incident.RowVersion);
     }
-    
+
+    [HttpPost]
+    public async Task<IActionResult> CreateIncident([FromBody] CreateIncidentDto incidentDto)
+    {
+        var incident = await _incidentService.CreateAsync(incidentDto);
+        return CreatedAtAction("GetIncidentById", new { id = incident.Id }, incident);
+    }
 }

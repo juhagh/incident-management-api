@@ -1,9 +1,10 @@
 using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Interfaces;
 
 public interface IApplicationDbContext
 {
-        IQueryable<Incident> Incidents { get; }
+        DbSet<Incident> Incidents { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,6 @@
 using Application.DTOs;
 using Application.Interfaces;
+using Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
@@ -36,5 +37,27 @@ public class IncidentService : IIncidentQueries
                 RowVersion = i.RowVersion
             })
             .FirstOrDefaultAsync();
+    }
+
+    public async Task<IncidentResponseDto> CreateAsync(CreateIncidentDto incidentDto)
+    {
+        var incident = Incident.Create(incidentDto.Title, incidentDto.Description, incidentDto.Severity,
+            incidentDto.NetworkElementId);
+
+        _context.Incidents.Add(incident);
+        await _context.SaveChangesAsync();
+
+        return new IncidentResponseDto
+        {
+            Id = incident.Id,
+            Title = incident.Title,
+            Description = incident.Description,
+            Severity = incident.Severity,
+            Status = incident.Status,
+            NetworkElementId = incident.NetworkElementId,
+            CreatedAt = incident.CreatedAt,
+            UpdatedAt = incident.UpdatedAt,
+            RowVersion = incident.RowVersion
+        };
     }
 }

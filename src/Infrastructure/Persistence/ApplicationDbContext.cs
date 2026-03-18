@@ -25,5 +25,5 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         }
     }
     
-    public IQueryable<Incident> Incidents => Set<Incident>();
+    public DbSet<Incident> Incidents => Set<Incident>();
 }
