@@ -102,7 +102,7 @@ public class Incident
 
     public void StartProgress()
     {
-        if (Status is IncidentStatus.Closed or IncidentStatus.Invalid or IncidentStatus.Resolved or IncidentStatus.Open)
+        if (Status is not (IncidentStatus.Assigned or IncidentStatus.Waiting))
             throw new InvalidOperationException(
                 $"Cannot change status when incident status is {Status}.");
         
@@ -110,11 +110,8 @@ public class Incident
             throw new InvalidOperationException(
                 "Cannot start progress when no engineer is assigned.");
 
-        if (Status is IncidentStatus.Assigned or IncidentStatus.Waiting)
-        {
-            Status = IncidentStatus.InProgress;
-            Touch();
-        }
+        Status = IncidentStatus.InProgress;
+        Touch();
     }
 
     public void MarkWaiting(string reason)

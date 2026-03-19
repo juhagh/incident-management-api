@@ -39,10 +39,10 @@ public class IncidentService : IIncidentService
             .FirstOrDefaultAsync();
     }
 
-    public async Task<IncidentResponseDto> CreateAsync(CreateIncidentDto incidentDto)
+    public async Task<IncidentResponseDto> CreateAsync(CreateIncidentDto createIncidentDto)
     {
-        var incident = Incident.Create(incidentDto.Title, incidentDto.Description, incidentDto.Severity,
-            incidentDto.NetworkElementId);
+        var incident = Incident.Create(createIncidentDto.Title, createIncidentDto.Description, createIncidentDto.Severity,
+            createIncidentDto.NetworkElementId);
         
         _context.AddEntity(incident);
         await _context.SaveChangesAsync();
@@ -50,36 +50,35 @@ public class IncidentService : IIncidentService
         return MapToDto(incident);
     }
 
-    public async Task<(CommandResult, IncidentResponseDto?)> AssignEngineerAsync(int id, AssignEngineerDto dto, uint etag)
+    public async Task<(CommandResult, IncidentResponseDto?)> AssignEngineerAsync(int id, AssignEngineerDto assignEngineerDto, uint etag)
     {
-        var incident = await _context.Incidents
-            .FirstOrDefaultAsync(i => i.Id == id);
+        return await ExecuteIncidentCommandAsync(id, etag, incident => incident.AssignEngineer(assignEngineerDto.EngineerId));
+    }
 
-        if (incident is null)
-            return (CommandResult.NotFound, null);
+    public async Task<(CommandResult, IncidentResponseDto?)> StartProgressAsync(int id, uint etag)
+    {
+        return await ExecuteIncidentCommandAsync(id, etag, incident => incident.StartProgress());
+    }
 
-        if (etag != incident.RowVersion)
-            return (CommandResult.ConcurrencyConflict, null);
-                
-        try
-        {
-            incident.AssignEngineer(dto.EngineerId);
-        }
-        catch (InvalidOperationException)
-        {
-            return (CommandResult.InvalidStateTransition, null);
-        }
+    public async Task<(CommandResult, IncidentResponseDto?)> ResolveAsync(int id, ResolveIncidentDto resolveIncidentDto, uint etag)
+    {
+        return await ExecuteIncidentCommandAsync(id, etag,
+            incident => incident.Resolve(resolveIncidentDto.ResolutionSummary));
+    }
 
-        try
-        {
-            await _context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return (CommandResult.ConcurrencyConflict, null);
-        }
+    public async Task<(CommandResult, IncidentResponseDto?)> MarkWaitingAsync(int id, MarkWaitingDto markWaitingDto, uint etag)
+    {
+        return await ExecuteIncidentCommandAsync(id, etag, incident => incident.MarkWaiting(markWaitingDto.Reason));
+    }
 
-        return (CommandResult.Success, MapToDto(incident));
+    public async Task<(CommandResult, IncidentResponseDto?)> MarkInvalidAsync(int id, MarkInvalidDto markInvalidDto, uint etag)
+    {
+        return await ExecuteIncidentCommandAsync(id, etag, incident => incident.MarkInvalid(markInvalidDto.Reason));
+    }
+
+    public async Task<(CommandResult, IncidentResponseDto?)> CloseAsync(int id, uint etag)
+    {
+        return await ExecuteIncidentCommandAsync(id, etag, incident => incident.Close());
     }
 
     private IncidentResponseDto MapToDto(Incident incident)
@@ -101,5 +100,40 @@ public class IncidentService : IIncidentService
             InvalidReason = incident.InvalidReason,
             RowVersion = incident.RowVersion
         };
+    }
+
+    private async Task<(CommandResult, IncidentResponseDto?)> ExecuteIncidentCommandAsync(
+        int id,
+        uint etag,
+        Action<Incident> applyDomainAction)
+    {
+        var incident = await _context.Incidents
+            .FirstOrDefaultAsync(i => i.Id == id);
+
+        if (incident is null)
+            return (CommandResult.NotFound, null);
+
+        if (etag != incident.RowVersion)
+            return (CommandResult.ConcurrencyConflict, null);
+                
+        try
+        {
+            applyDomainAction(incident);
+        }
+        catch (InvalidOperationException)
+        {
+            return (CommandResult.InvalidStateTransition, null);
+        }
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return (CommandResult.ConcurrencyConflict, null);
+        }
+
+        return (CommandResult.Success, MapToDto(incident));
     }
 }
