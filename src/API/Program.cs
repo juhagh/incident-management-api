@@ -30,7 +30,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 builder.Services.AddScoped<IApplicationDbContext>(sp =>
     sp.GetRequiredService<ApplicationDbContext>());
 
-builder.Services.AddScoped<IIncidentQueries, IncidentService>();
+builder.Services.AddScoped<IIncidentService, IncidentService>();
 
 builder.Services.AddSingleton<InMemoryUserStore>();
 builder.Services.AddScoped<ITokenService, TokenService>();

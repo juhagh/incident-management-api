@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services;
 
-public class IncidentService : IIncidentQueries
+public class IncidentService : IIncidentService
 {
     private readonly IApplicationDbContext _context;
 
@@ -43,10 +43,47 @@ public class IncidentService : IIncidentQueries
     {
         var incident = Incident.Create(incidentDto.Title, incidentDto.Description, incidentDto.Severity,
             incidentDto.NetworkElementId);
-
-        _context.Incidents.Add(incident);
+        
+        _context.AddEntity(incident);
         await _context.SaveChangesAsync();
 
+        return MapToDto(incident);
+    }
+
+    public async Task<(CommandResult, IncidentResponseDto?)> AssignEngineerAsync(int id, AssignEngineerDto dto, uint etag)
+    {
+        var incident = await _context.Incidents
+            .FirstOrDefaultAsync(i => i.Id == id);
+
+        if (incident is null)
+            return (CommandResult.NotFound, null);
+
+        if (etag != incident.RowVersion)
+            return (CommandResult.ConcurrencyConflict, null);
+                
+        try
+        {
+            incident.AssignEngineer(dto.EngineerId);
+        }
+        catch (InvalidOperationException)
+        {
+            return (CommandResult.InvalidStateTransition, null);
+        }
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return (CommandResult.ConcurrencyConflict, null);
+        }
+
+        return (CommandResult.Success, MapToDto(incident));
+    }
+
+    private IncidentResponseDto MapToDto(Incident incident)
+    {
         return new IncidentResponseDto
         {
             Id = incident.Id,
@@ -55,8 +92,13 @@ public class IncidentService : IIncidentQueries
             Severity = incident.Severity,
             Status = incident.Status,
             NetworkElementId = incident.NetworkElementId,
+            EngineerId = incident.EngineerId,
             CreatedAt = incident.CreatedAt,
             UpdatedAt = incident.UpdatedAt,
+            ClosedAt = incident.ClosedAt,
+            WaitingReason = incident.WaitingReason,
+            ResolutionSummary = incident.ResolutionSummary,
+            InvalidReason = incident.InvalidReason,
             RowVersion = incident.RowVersion
         };
     }
