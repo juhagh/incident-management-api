@@ -10,21 +10,6 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
 
-    services:
-      postgres-test:
-        image: postgres:16
-        env:
-          POSTGRES_DB: roleclaimstestdb
-          POSTGRES_USER: appuser
-          POSTGRES_PASSWORD: apppassword
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd="pg_isready -U appuser -d roleclaimstestdb"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
