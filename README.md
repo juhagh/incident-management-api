@@ -1,80 +1,67 @@
+[![CI](https://github.com/juhagh/incident-management-api/actions/workflows/ci.yml/badge.svg)](https://github.com/juhagh/incident-management-api/actions/workflows/ci.yml)
+[![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)](https://dotnet.microsoft.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
+[![JWT](https://img.shields.io/badge/Auth-JWT-black?logo=jsonwebtokens)](https://jwt.io)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
 # IncidentManagementApi
 
-Backend-focused ASP.NET Core Web API for managing incidents with explicit lifecycle rules, JWT authentication, optimistic concurrency, and HTTP caching support.
+ASP.NET Core Web API demonstrating domain-driven incident lifecycle rules, JWT-protected command endpoints, optimistic concurrency with ETags, and integration-tested HTTP behaviour.
 
-This project is designed to demonstrate backend development beyond simple CRUD. It models incidents as a real domain entity with enforced state transitions, protects command endpoints with authentication, uses ETags for conditional requests and optimistic concurrency, and includes both domain and API integration tests.
-
----
-
-## Overview
-
-The API is built around an **incident management domain** rather than generic data access. The goal is to practise production-relevant backend concerns such as:
-
-- domain-driven state and lifecycle rules
-- separation of concerns across layers
-- DTO-based API contracts
-- optimistic concurrency
-- conditional HTTP requests with ETags
-- authenticated command endpoints
-- repeatable automated tests
-
-The solution is organised into separate projects for:
-
-- **API** – controllers, authentication, HTTP behaviour, response mapping
-- **Application** – DTOs, interfaces, services, command/query orchestration
-- **Domain** – entities, enums, invariants, and lifecycle rules
-- **Infrastructure** – EF Core persistence, database configuration, token service
+This project is designed to go beyond basic CRUD. Incidents are treated as real domain entities with enforced lifecycle transitions, state-changing endpoints are protected with authentication, and the API implements conditional requests and concurrency checks using standard HTTP semantics.
 
 ---
 
-## Tech stack
+## What This Project Demonstrates
+
+- **Layered backend design** across API, Application, Domain, and Infrastructure
+- **Domain-enforced business rules** instead of relying only on controller validation
+- **JWT authentication** for protected command endpoints
+- **Optimistic concurrency** using `ETag` and `If-Match`
+- **Conditional GET support** using `If-None-Match`
+- **DTO-based API contracts**
+- **Automated testing** across both domain logic and HTTP behaviour
+- **Containerised local setup** with Docker Compose and PostgreSQL
+
+---
+
+## Tech Stack
 
 - C#
-- .NET 9
+- .NET 10
 - ASP.NET Core Web API
 - Entity Framework Core
 - PostgreSQL
 - JWT Bearer authentication
 - xUnit
-- SQLite (used in API integration tests)
+- SQLite for API integration tests
+- Docker / Docker Compose
 
 ---
 
 ## Architecture
 
+The solution is organised into separate projects with clear responsibilities:
+
+- **API** – controllers, authentication, HTTP concerns, response behaviour, ETag handling
+- **Application** – DTOs, interfaces, service orchestration, command/query handling
+- **Domain** – entities, enums, lifecycle rules, and business invariants
+- **Infrastructure** – EF Core persistence, mappings, token generation, and database access
+
 Request flow:
 
-`HTTP request -> Controller -> Application service/query layer -> DbContext -> Database`
-
-### Structure highlights
-
-- **Controllers** handle HTTP concerns such as routing, status codes, headers, authentication, and conditional request behaviour
-- **Application layer** contains DTOs, service abstractions, and command/query orchestration
-- **Domain layer** contains the `Incident` aggregate and enforces lifecycle invariants
-- **Infrastructure layer** handles EF Core persistence, database mappings, and JWT token generation
+`HTTP request -> Controller -> Application service -> DbContext -> Database`
 
 ---
 
-## Core features
+## Key Backend Behaviours
 
-This project demonstrates:
+### Incident lifecycle modelling
 
-- layered backend design across API, Application, Domain, and Infrastructure
-- incident lifecycle modelling with explicit state transitions
-- domain-enforced business rules instead of controller-only validation
-- JWT authentication for protected command endpoints
-- optimistic concurrency using ETags and `If-Match`
-- conditional `GET` support using `If-None-Match`
-- DTO-based response shaping
-- API integration tests and domain unit tests
+Incidents are not treated as freely editable records. The domain model enforces valid transitions between states.
 
----
-
-## Incident lifecycle
-
-Incidents are not treated as simple editable records. The domain enforces valid transitions between statuses.
-
-### Main statuses
+Supported statuses:
 
 - `Open`
 - `Assigned`
@@ -84,65 +71,51 @@ Incidents are not treated as simple editable records. The domain enforces valid 
 - `Invalid`
 - `Closed`
 
-### Example lifecycle rules
-
-Examples of enforced business rules include:
+Examples of enforced rules:
 
 - an incident can be assigned from `Open`, `Assigned`, `InProgress`, or `Waiting`
 - progress can only start from `Assigned` or `Waiting`
 - resolving requires the incident to be `InProgress`
 - closing is only allowed from `Resolved` or `Invalid`
-- invalid transitions throw at the domain level and are mapped to appropriate HTTP responses
 
-This keeps lifecycle behaviour inside the domain model instead of scattering it across controllers or persistence code.
+Invalid transitions are rejected at the domain level and mapped to appropriate HTTP responses.
 
----
+### Authentication
 
-## Authentication and authorization
+The API includes JWT authentication for state-changing endpoints.
 
-The API includes JWT authentication for command endpoints.
-
-### Implemented behaviour
+Implemented behaviour:
 
 - `POST /auth/login` issues a JWT for a known user
-- `GET` incident endpoints are available anonymously
-- state-changing incident endpoints require authentication
-- API integration tests verify both authorized and unauthorized behaviour
+- `GET` endpoints are available anonymously
+- command endpoints require authentication
 
-This demonstrates how to separate read and write concerns while protecting mutation endpoints.
+This keeps reads simple while protecting write operations.
 
----
+### Optimistic concurrency and caching
 
-## Optimistic concurrency and ETags
+A key focus of this project is HTTP-aware concurrency behaviour.
 
-A key focus of this project is concurrency-aware API behaviour.
-
-### `GET /api/incidents/{id}`
-
-The incident retrieval endpoint:
+For `GET /api/incidents/{id}`, the API:
 
 - returns `404 Not Found` when the incident does not exist
 - returns `200 OK` with an incident response DTO when found
-- generates an `ETag` from the incident row version
+- includes an `ETag` representing the current row version
 - supports `If-None-Match`
 - returns `304 Not Modified` when the client's cached version is still current
 
-### Command endpoints
-
-State-changing endpoints such as assign, start progress, resolve, and close use `If-Match` preconditions.
-
-Implemented API behaviour includes:
+For state-changing endpoints, the API uses `If-Match` preconditions:
 
 - `428 Precondition Required` when `If-Match` is missing
 - `400 Bad Request` when `If-Match` is malformed
 - `412 Precondition Failed` when the supplied ETag is stale
 - `409 Conflict` when the requested operation violates domain lifecycle rules
 
-This demonstrates optimistic concurrency at the HTTP API level, rather than relying only on database exceptions.
+This demonstrates optimistic concurrency at the HTTP contract level rather than relying only on database exceptions.
 
 ---
 
-## Example endpoints
+## Example Endpoints
 
 ### Authentication
 
@@ -164,120 +137,56 @@ This demonstrates optimistic concurrency at the HTTP API level, rather than rely
 
 ---
 
-## Testing
-
-The solution includes both **domain unit tests** and **API integration tests**.
-
-### Domain tests cover
-
-- incident creation guard clauses
-- valid and invalid lifecycle transitions
-- assignment rules
-- waiting, resolving, invalidation, and close behaviour
-- invariant protection on failed operations
-
-### API integration tests cover
-
-- authenticated and unauthenticated endpoint access
-- `GET` success, `404`, and conditional `304`
-- incident creation behaviour
-- `If-Match` precondition handling (`428`, `400`, `412`)
-- successful command execution
-- invalid transitions mapped to `409 Conflict`
-
-The goal of the test suite is not just endpoint smoke testing, but proving the business rules and HTTP contract that make the project interesting.
-
----
-
-## Project structure
+## Project Structure
 
 ```text
 IncidentManagementApi.sln
-├── src/
-│   ├── API/
-│   │   ├── Controllers/
-│   │   ├── Authentication/
-│   │   ├── Middleware/
-│   │   └── Program.cs
-│   ├── Application/
-│   │   ├── DTOs/
-│   │   ├── Interfaces/
-│   │   ├── Services/
-│   │   └── CommandsQueries/
-│   ├── Domain/
-│   │   ├── Entities/
-│   │   ├── Enums/
-│   │   └── Users/
-│   └── Infrastructure/
-│       ├── Authentication/
-│       ├── Configurations/
-│       ├── Persistence/
-│       └── Services/
-└── tests/
-    ├── Domain.Tests/
-    └── API.Tests/
+├── src
+│   ├── API
+│   │   ├── Controllers
+│   │   ├── Http
+│   │   ├── Program.cs
+│   ├── Application
+│   │   ├── DTOs
+│   │   ├── Interfaces
+│   │   └── Services
+│   ├── Domain
+│   │   ├── Entities
+│   │   └── Enums
+│   └── Infrastructure
+│       ├── Auth
+│       ├── Configurations
+│       ├── Migrations
+│       └── Persistence
+└── tests
+    ├── API.Tests
+    └── Domain.Tests
 ```
-
----
-
-## What this project demonstrates
-
-This project helped me practise and understand:
-
-- designing a backend around domain behaviour rather than simple CRUD
-- structuring a multi-project solution with clear separation of concerns
-- modelling lifecycle rules inside an aggregate
-- protecting command endpoints with JWT authentication
-- handling optimistic concurrency using ETags and preconditions
-- mapping domain outcomes to appropriate HTTP responses
-- writing domain and API tests around meaningful backend behaviour
 
 ---
 
 ## Running locally
 
-### 1. Start the database
+### Prerequisites
+
+- [Docker](https://www.docker.com/)
+
+### 1. Start the API and database
 
 From the repository root:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
-### 2. Apply EF Core migrations
+This starts the API and a PostgreSQL database. Database migrations run automatically on startup.
 
-If `dotnet ef` is not installed on your machine yet:
+The API will be available at `http://localhost:8080`.
 
-```bash
-dotnet tool install --global dotnet-ef
-```
-
-Then, from the repository root:
+### 2. Authenticate and get a JWT
 
 ```bash
-dotnet restore
-dotnet ef database update --project src/Infrastructure --startup-project src/API
-```
-
-### 3. Run the API
-
-```bash
-dotnet run --project src/API --launch-profile https
-```
-
-By default, the API runs at:
-
-- `https://localhost:7281`
-- `http://localhost:5073`
-
-The examples below use `https://localhost:7281`.
-
-> Note: if your local HTTPS development certificate is not trusted, your HTTP client may reject the request. In that case, trust the ASP.NET Core development certificate or use the HTTP endpoint for local testing.
-
-### 4. Authenticate and get a JWT
-
-```bash
-curl https://localhost:7281/auth/login \
+curl http://localhost:8080/auth/login \
   --request POST \
   --header 'Content-Type: application/json' \
   --data '{
@@ -286,16 +195,16 @@ curl https://localhost:7281/auth/login \
   }'
 ```
 
-Copy the returned token and use it in the next requests:
+Copy the returned token and export it:
 
 ```bash
 export JWT_TOKEN="<PASTE_JWT_TOKEN_HERE>"
 ```
 
-### 5. Create an incident
+### 3. Create an incident
 
 ```bash
-curl https://localhost:7281/api/incidents \
+curl http://localhost:8080/api/incidents \
   --request POST \
   --header 'Content-Type: application/json' \
   --header "Authorization: Bearer $JWT_TOKEN" \
@@ -313,10 +222,10 @@ Copy the returned `id` from the response body:
 export INCIDENT_ID="<PASTE_INCIDENT_ID_HERE>"
 ```
 
-### 6. Retrieve the incident and note the ETag
+### 4. Retrieve the incident and note the ETag
 
 ```bash
-curl -i https://localhost:7281/api/incidents/$INCIDENT_ID
+curl -i http://localhost:8080/api/incidents/$INCIDENT_ID
 ```
 
 The response headers will include an `ETag`, for example:
@@ -331,12 +240,12 @@ Copy that value and export it:
 export ETAG='W/"1"'
 ```
 
-### 7. Execute a protected command with `If-Match`
+### 5. Execute a protected command with `If-Match`
 
 Example: assign an engineer
 
 ```bash
-curl https://localhost:7281/api/incidents/$INCIDENT_ID/assign-engineer \
+curl http://localhost:8080/api/incidents/$INCIDENT_ID/assign-engineer \
   --request POST \
   --header 'Content-Type: application/json' \
   --header "Authorization: Bearer $JWT_TOKEN" \
@@ -346,28 +255,27 @@ curl https://localhost:7281/api/incidents/$INCIDENT_ID/assign-engineer \
   }'
 ```
 
-### 8. Refresh the ETag before the next command
+### 6. Refresh the ETag before the next command
 
 After a successful command, retrieve the incident again to get the latest `ETag` before issuing another state-changing request:
 
 ```bash
-curl -i https://localhost:7281/api/incidents/$INCIDENT_ID
+curl -i http://localhost:8080/api/incidents/$INCIDENT_ID
 ```
 
 Then update the `ETAG` variable with the new value before sending the next command.
 
-An updated `ETag` may also be returned in the response headers of a successful command.
+An updated `ETag` is also returned in the response headers of a successful command.
 
-### 9. Further example commands
+### 7. Further example commands
 
 To move an incident to `Resolved`, it must first be in `InProgress`.
 
 #### Start progress
 
 ```bash
-curl https://localhost:7281/api/incidents/$INCIDENT_ID/start-progress \
+curl http://localhost:8080/api/incidents/$INCIDENT_ID/start-progress \
   --request POST \
-  --header 'Content-Type: application/json' \
   --header "Authorization: Bearer $JWT_TOKEN" \
   --header "If-Match: $ETAG"
 ```
@@ -377,7 +285,7 @@ After a successful command, retrieve the incident again and update the `ETAG` va
 #### Resolve
 
 ```bash
-curl https://localhost:7281/api/incidents/$INCIDENT_ID/resolve \
+curl http://localhost:8080/api/incidents/$INCIDENT_ID/resolve \
   --request POST \
   --header 'Content-Type: application/json' \
   --header "Authorization: Bearer $JWT_TOKEN" \
@@ -387,11 +295,7 @@ curl https://localhost:7281/api/incidents/$INCIDENT_ID/resolve \
   }'
 ```
 
-### 10. Stop the application and database
-
-Stop the API with `Ctrl + C`.
-
-Stop the database:
+### 8. Stop the application and database
 
 ```bash
 docker compose down
@@ -399,20 +303,41 @@ docker compose down
 
 ---
 
-## Future improvements
+## Testing
 
-Possible next steps:
+The solution includes both domain unit tests and API integration tests.
 
-- return structured `ProblemDetails` bodies for command failures
-- add filtering, sorting, and pagination for incident queries
-- replace hardcoded/in-memory users with persistent identity storage
-- add refresh tokens and more complete auth flows
-- add containerised local setup for API + database
-- expand documentation with request/response examples
-- add CI workflow for build and test execution
+### Domain tests cover
+
+- incident creation guard clauses
+- valid and invalid lifecycle transitions
+- assignment rules
+- waiting, resolving, invalidation, and close behaviour
+- invariant protection on failed operations
+
+### API integration tests cover
+
+- authenticated and unauthenticated endpoint access
+- GET success, 404, and conditional 304
+- incident creation behaviour
+- If-Match precondition handling
+- successful command execution
+- invalid transitions mapped to 409 Conflict
+
+The goal of the test suite is to verify both business rules and the HTTP contract exposed by the API.
 
 ---
 
-## Purpose
+## Possible Extensions
 
-This repository is part of my transition into backend development, with a focus on C#/.NET, backend design, API behaviour, domain modelling, authentication, and production-relevant concerns such as concurrency and testing.
+- return structured ProblemDetails bodies for command failures
+- add filtering, sorting, and pagination for incident queries
+- replace in-memory users with persistent identity storage
+- add refresh tokens and a fuller authentication flow
+- expand documentation with additional request/response examples
+
+---
+
+## Why I Built This
+
+I built this project to practise backend concerns that matter in real systems: domain modelling, API design, authentication, optimistic concurrency, HTTP semantics, and automated testing.
