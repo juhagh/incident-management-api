@@ -2,9 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
-using API.Http.Etags;
 using API.Tests.Models;
-using Domain.Enums;
 using Xunit.Abstractions;
 
 namespace API.Tests;

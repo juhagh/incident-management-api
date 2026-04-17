@@ -22,9 +22,6 @@ public class AuthenticatedWebApplicationFactory : CustomWebApplicationFactory
             foreach (var d in jwtDescriptors)
                 services.Remove(d);
 
-            // services.RemoveAll<IAuthenticationSchemeProvider>();
-            // services.RemoveAll<IAuthenticationHandlerProvider>();
-
             services.AddAuthentication(options =>
                 {
                     options.DefaultAuthenticateScheme = "TestScheme";
