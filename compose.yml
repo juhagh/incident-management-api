@@ -1,0 +1,33 @@
+services:
+  postgres-dev:
+    image: postgres:16
+    container_name: incident_postgres
+    environment:
+      POSTGRES_DB: incidentdb
+      POSTGRES_USER: incident_user
+      POSTGRES_PASSWORD: incident_password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U incident_user -d incidentdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: incidentmanagement-api
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Host=postgres-dev;Port=5432;Database=incidentdb;Username=incident_user;Password=incident_password
+      Jwt__Key: YVWgQrQqMRrrLytIYxo5DgJnUk2Uu3vkYH6KXxTErOnWAdym/T6aXM0TthJSB9/4gflYnyasNjvunzR9ErgCNQ== # Dev only - replace with a secure secret in production
+      Jwt__Issuer: IncidentManagementApp
+      Jwt__Audience: IncidentManagementAppClient
+      Jwt__AccessTokenMinutes: 10
+    ports:
+      - "8080:8080"

@@ -18,14 +18,11 @@ builder.Services.AddControllers()
             new JsonStringEnumConverter());
     });
 
-if (!builder.Environment.IsEnvironment("Testing"))
-{
-    builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseNpgsql(
-            builder.Configuration.GetConnectionString("DefaultConnection")
-        )
-    );
-}
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+    )
+);
 
 builder.Services.AddScoped<IApplicationDbContext>(sp =>
     sp.GetRequiredService<ApplicationDbContext>());
@@ -76,8 +73,13 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
 
+app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
